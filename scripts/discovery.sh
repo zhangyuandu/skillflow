@@ -67,34 +67,43 @@ extract_skill_metadata() {
   fi
   
   # Extract capabilities from description
-  # Look for keywords like "use when", "supports", "triggers"
-  local capabilities=$(echo "$description" | grep -oiE '\b(search|write|read|create|edit|delete|upload|download|summarize|translate|execute|analyze|fetch|send|notify)\b' | sort -u | jq -R . | jq -s .)
+  local capabilities="[]"
+  if command -v jq >/dev/null 2>&1; then
+    local caps=$(echo "$description" | grep -oiE '\b(search|write|read|create|edit|delete|upload|download|summarize|translate|execute|analyze|fetch|send|notify|browse|orchestrat|plan)\b' 2>/dev/null | sort -u || true)
+    if [ -n "$caps" ]; then
+      # 安全地构建 JSON 数组
+      capabilities=$(echo "$caps" | awk 'BEGIN{printf "["} NR>1{printf ", "} {printf "\"%s\"", $0} END{printf "]"}')
+      # 验证 JSON
+      if ! echo "$capabilities" | jq empty 2>/dev/null; then
+        capabilities="[]"
+      fi
+    fi
+  fi
   
-  # Build JSON object
-  jq -n \
+  # Build JSON object - 使用简单的字符串拼接避免 jq 解析问题
+  local skill_path=$(dirname "$skill_md")
+  
+  # 使用 printf 和 jq 确保正确的 JSON 转义
+  printf '%s' "$(jq -n \
     --arg name "$name" \
     --arg description "$description" \
     --argjson capabilities "$capabilities" \
-    --arg path "$(dirname "$skill_md")" \
-    '{
-      name: $name,
-      description: $description,
-      capabilities: $capabilities,
-      path: $path
-    }'
+    --arg path "$skill_path" \
+    '{name: $name, description: $description, capabilities: $capabilities, path: $path}'
+  )"
 }
 
 # Scan all skill directories
 scan_skills() {
   local skills_json="[]"
+  local found_count=0
   
   for dir in "${SKILL_DIRS[@]}"; do
     if [ ! -d "$dir" ]; then
-      log_warn "Skill directory not found: $dir"
       continue
     fi
     
-    log_info "Scanning: $dir"
+    log_info "扫描: $dir"
     
     for skill_dir in "$dir"/*/; do
       if [ ! -d "$skill_dir" ]; then
@@ -107,13 +116,20 @@ scan_skills() {
         local metadata=$(extract_skill_metadata "$skill_md")
         
         if [ $? -eq 0 ] && [ -n "$metadata" ]; then
-          skills_json=$(echo "$skills_json" | jq --argjson skill "$metadata" '. + [$skill]')
-          log_info "  Found: $(echo "$metadata" | jq -r '.name')"
+          # 验证 metadata 是有效的 JSON
+          if echo "$metadata" | jq empty 2>/dev/null; then
+            skills_json=$(echo "$skills_json" | jq --argjson skill "$metadata" '. + [$skill]' 2>/dev/null || echo "$skills_json")
+            found_count=$((found_count + 1))
+            
+            local skill_name=$(echo "$metadata" | jq -r '.name' 2>/dev/null || echo "unknown")
+            log_info "  发现: $skill_name"
+          fi
         fi
       fi
     done
   done
   
+  log_info "共发现 $found_count 个技能"
   echo "$skills_json"
 }
 
@@ -121,39 +137,8 @@ scan_skills() {
 build_capability_index() {
   local skills_json="$1"
   
-  echo "$skills_json" | jq -r '
-    .[].capabilities[]? | 
-    . as $cap | 
-    input | 
-    group_by($cap) | 
-    map({(.[0].capabilities[]): [.[].name]}) | 
-    add
-  ' <<< "$skills_json"
-}
-
-# Main
-main() {
-  log_info "Orchestrator Skill Discovery"
-  echo "--------------------------------"
-  
-  # Check cache
-  if is_cache_valid && [ "${1:-}" != "--force" ]; then
-    log_info "Using cached registry (age: $(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || stat -f %m "$CACHE_FILE")))s)"
-    cat "$CACHE_FILE"
-    exit 0
-  fi
-  
-  log_info "Scanning for skills..."
-  
-  # Scan skills
-  local skills=$(scan_skills)
-  local skill_count=$(echo "$skills" | jq 'length')
-  
-  log_info "Found $skill_count skills"
-  
-  # Build capability index
-  log_info "Building capability index..."
-  local cap_index=$(echo "$skills" | jq '
+  # 安全地构建能力索引
+  echo "$skills_json" | jq '
     reduce .[] as $skill (
       {};
       . + reduce ($skill.capabilities[]?) as $cap (
@@ -161,24 +146,51 @@ main() {
         .[$cap] = ((.[$cap] // []) + [$skill.name])
       )
     )
-  ')
+  ' 2>/dev/null || echo "{}"
+}
+
+# Main
+main() {
+  log_info "SkillFlow 技能发现"
+  echo "--------------------------------"
   
-  # Create final registry
+  # Check cache
+  if is_cache_valid && [ "${1:-}" != "--force" ]; then
+    local cache_age=$(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || stat -f %m "$CACHE_FILE")))
+    log_info "使用缓存 (已缓存 ${cache_age}s)"
+    cat "$CACHE_FILE"
+    exit 0
+  fi
+  
+  # Scan skills
+  local skills=$(scan_skills)
+  local skill_count=$(echo "$skills" | jq 'length' 2>/dev/null || echo "0")
+  
+  # Build capability index
+  log_info "构建能力索引..."
+  local cap_index=$(build_capability_index "$skills")
+  
+# Create final registry
   local registry=$(jq -n \
     --argjson skills "$skills" \
     --argjson capabilities "$cap_index" \
     --arg updated "$(date -Iseconds)" \
     '{
-      skills: ($skills | map({key: .name, value: .}) | from_entries),
+      skills: $skills,
       capabilities_index: $capabilities,
       last_updated: $updated
-    }')
+    }' 2>/dev/null)
+  
+  if [ -z "$registry" ] || ! echo "$registry" | jq empty 2>/dev/null; then
+    log_error "构建注册表失败"
+    exit 1
+  fi
   
   # Save to cache
   mkdir -p "$(dirname "$CACHE_FILE")"
   echo "$registry" > "$CACHE_FILE"
   
-  log_info "Registry saved to: $CACHE_FILE"
+  log_info "注册表已保存: $CACHE_FILE"
   echo ""
   
   # Output

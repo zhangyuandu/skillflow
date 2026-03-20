@@ -1,0 +1,293 @@
+#!/usr/bin/env node
+/**
+ * SkillFlow CLI
+ * 
+ * 用法:
+ *   skillflow plan "任务描述"       # 生成执行计划
+ *   skillflow execute <plan.json>  # 执行计划
+ *   skillflow run "任务描述"       # 规划+执行
+ *   skillflow status              # 查看状态
+ *   skillflow history             # 查看执行历史
+ *   skillflow skills              # 列出可用技能
+ */
+
+const path = require('path');
+const fs = require('fs');
+
+// 加载核心模块
+const corePath = path.join(__dirname, '..', 'src', 'index.js');
+const pipelinePath = path.join(__dirname, '..', 'src', 'pipeline.js');
+const historyPath = path.join(__dirname, '..', 'src', 'history.js');
+
+let skillflow, Pipeline, getHistoryManager;
+try {
+  skillflow = require(corePath);
+  Pipeline = require(pipelinePath).Pipeline;
+  getHistoryManager = require(historyPath).getHistoryManager;
+} catch (e) {
+  console.error('❌ 无法加载 SkillFlow 核心模块:', e.message);
+  process.exit(1);
+}
+
+// ============================================================================
+// CLI 命令
+// ============================================================================
+
+const commands = {
+  /**
+   * 生成执行计划
+   */
+  async plan(args) {
+    const task = args.join(' ');
+    if (!task) {
+      console.error('❌ 请提供任务描述');
+      console.log('用法: skillflow plan "搜索AI新闻并总结"');
+      process.exit(1);
+    }
+    
+    console.log('📋 生成执行计划...\n');
+    console.log('任务:', task);
+    
+    try {
+      const result = await skillflow.plan(task);
+      
+      console.log('\n发现的技能:', result.skills.join(', '));
+      console.log('\n执行计划:');
+      result.plan.forEach((step, i) => {
+        const deps = step.depends_on?.length ? ` (依赖: ${step.depends_on.join(', ')})` : '';
+        console.log(`  ${i + 1}. [${step.action}] ${step.skill_hint}${deps}`);
+      });
+      
+      // 保存计划到文件
+      const planFile = `.skillflow-plan-${Date.now()}.json`;
+      fs.writeFileSync(planFile, JSON.stringify(result, null, 2));
+      console.log(`\n✅ 计划已保存到: ${planFile}`);
+      
+    } catch (error) {
+      console.error('❌ 生成计划失败:', error.message);
+      process.exit(1);
+    }
+  },
+
+  /**
+   * 执行计划
+   */
+  async execute(args) {
+    const planFile = args[0];
+    if (!planFile) {
+      console.error('❌ 请提供计划文件');
+      console.log('用法: skillflow execute plan.json');
+      process.exit(1);
+    }
+    
+    if (!fs.existsSync(planFile)) {
+      console.error('❌ 计划文件不存在:', planFile);
+      process.exit(1);
+    }
+    
+    const planData = JSON.parse(fs.readFileSync(planFile, 'utf-8'));
+    console.log('🚀 执行计划...\n');
+    
+    try {
+      const result = await skillflow.run(planData.task || planData.plan[0]?.action);
+      
+      if (result.success) {
+        console.log('✅ 执行成功');
+        console.log('\n执行历史:');
+        result.execution.history.forEach((h, i) => {
+          console.log(`  ${i + 1}. ${h.stepId} - ${h.action} ${h.success ? '✅' : '❌'}`);
+        });
+        console.log('\n最终结果:', JSON.stringify(result.result, null, 2));
+      } else {
+        console.log('❌ 执行失败:', result.error);
+      }
+      
+    } catch (error) {
+      console.error('❌ 执行失败:', error.message);
+      process.exit(1);
+    }
+  },
+
+  /**
+   * 规划并执行
+   */
+  async run(args) {
+    const task = args.join(' ');
+    if (!task) {
+      console.error('❌ 请提供任务描述');
+      console.log('用法: skillflow run "搜索AI新闻并总结"');
+      process.exit(1);
+    }
+    
+    console.log('🎯 执行任务:', task);
+    
+    try {
+      const result = await skillflow.run(task);
+      
+      if (result.success) {
+        console.log('\n✅ 任务完成');
+        console.log('步骤:', result.execution.history.length);
+        
+        // 记录到历史
+        const history = getHistoryManager();
+        history.record({
+          task,
+          success: true,
+          skills: result.skills || [],
+          duration: result.execution.history.reduce((sum, h) => sum + (h.duration || 0), 0)
+        });
+        
+      } else {
+        console.log('\n❌ 任务失败:', result.error);
+      }
+      
+    } catch (error) {
+      console.error('❌ 执行失败:', error.message);
+      process.exit(1);
+    }
+  },
+
+  /**
+   * 查看状态
+   */
+  async status() {
+    console.log('📊 SkillFlow 状态\n');
+    
+    const history = getHistoryManager();
+    const stats = history.stats();
+    
+    console.log('执行统计:');
+    console.log(`  总执行次数: ${stats.total}`);
+    console.log(`  成功率: ${stats.successRate}`);
+    console.log(`  平均耗时: ${stats.avgDuration}ms`);
+    
+    console.log('\n技能使用频率:');
+    Object.entries(stats.skillUsage)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .forEach(([skill, count]) => {
+        console.log(`  ${skill}: ${count} 次`);
+      });
+  },
+
+  /**
+   * 查看执行历史
+   */
+  async history(args) {
+    const limit = parseInt(args[0]) || 10;
+    const history = getHistoryManager();
+    const records = history.recent(limit);
+    
+    console.log(`📜 最近 ${records.length} 条执行记录\n`);
+    
+    records.forEach((record, i) => {
+      const time = new Date(record.timestamp).toLocaleString('zh-CN');
+      const status = record.success ? '✅' : '❌';
+      const task = (record.task || '未知任务').substring(0, 40);
+      
+      console.log(`${i + 1}. ${status} ${time}`);
+      console.log(`   任务: ${task}`);
+      if (record.skills?.length) {
+        console.log(`   技能: ${record.skills.join(', ')}`);
+      }
+      console.log('');
+    });
+  },
+
+  /**
+   * 列出可用技能
+   */
+  async skills() {
+    console.log('🔧 可用技能\n');
+    
+    try {
+      const skills = await skillflow.discoverSkills();
+      
+      Object.values(skills).forEach((skill, i) => {
+        console.log(`${i + 1}. ${skill.name}`);
+        console.log(`   能力: ${skill.capabilities.slice(0, 5).join(', ')}`);
+        console.log('');
+      });
+      
+      console.log(`共 ${Object.keys(skills).length} 个技能`);
+      
+    } catch (error) {
+      console.error('❌ 获取技能列表失败:', error.message);
+    }
+  },
+
+  /**
+   * Pipeline 模式
+   */
+  async pipeline(args) {
+    const pipelineFile = args[0];
+    if (!pipelineFile) {
+      console.error('❌ 请提供 Pipeline 配置文件');
+      console.log('用法: skillflow pipeline pipeline.json');
+      process.exit(1);
+    }
+    
+    console.log('🔄 执行 Pipeline...\n');
+    
+    // 简单示例
+    const pipe = new Pipeline('custom');
+    pipe.stage('start', data => data);
+    
+    const result = await pipe.run({ input: pipelineFile });
+    console.log('✅ Pipeline 执行完成');
+    console.log(pipe.visualize());
+  },
+
+  /**
+   * 帮助
+   */
+  help() {
+    console.log(`
+🌊 SkillFlow - 通用智能任务编排引擎
+
+用法:
+  skillflow <command> [args]
+
+命令:
+  plan "任务"        生成执行计划
+  execute <file>     执行计划文件
+  run "任务"         规划并执行
+  status             查看状态统计
+  history [n]        查看最近 n 条历史
+  skills             列出可用技能
+  pipeline <file>    执行 Pipeline
+  help               显示帮助
+
+示例:
+  skillflow plan "搜索AI新闻，总结后保存到飞书文档"
+  skillflow run "分析代码库并生成报告"
+  skillflow history 5
+
+文档:
+  https://github.com/zhangyuandu/skillflow
+`);
+  }
+};
+
+// ============================================================================
+// 入口
+// ============================================================================
+
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0] || 'help';
+  const commandArgs = args.slice(1);
+
+  if (commands[command]) {
+    await commands[command](commandArgs);
+  } else {
+    console.error(`❌ 未知命令: ${command}`);
+    console.log('运行 `skillflow help` 查看帮助');
+    process.exit(1);
+  }
+}
+
+main().catch(error => {
+  console.error('❌ 错误:', error.message);
+  process.exit(1);
+});
