@@ -1,0 +1,25 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="256" height="256" fill="#0a0a0a"/>
+  
+  <!-- 外圈光晕 -->
+  <circle cx="128" cy="128" r="90" fill="none" stroke="#1a1a2e" stroke-width="2"/>
+  
+  <!-- 新月主体 - 简约风格 -->
+  <path d="M 128 48 A 80 80 0 1 1 128 208 A 60 60 0 1 0 128 48" fill="#1a1a2e"/>
+  
+  <!-- 月牙边缘 -->
+  <path d="M 128 48 A 80 80 0 1 1 128 208 A 60 60 0 1 0 128 48" fill="none" stroke="#3d3d5c" stroke-width="1"/>
+  
+  <!-- 微光点缀 -->
+  <circle cx="85" cy="120" r="2" fill="#4a4a6a" opacity="0.6"/>
+  <circle cx="75" cy="145" r="1.5" fill="#4a4a6a" opacity="0.4"/>
+  <circle cx="95" cy="165" r="1" fill="#4a4a6a" opacity="0.3"/>
+  
+  <!-- Ash 签名 -->
+  <text x="128" y="230" 
+        font-family="monospace" 
+        font-size="20" 
+        fill="#2d2d44"
+        text-anchor="middle">ASH</text>
+</svg>
