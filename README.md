@@ -5,7 +5,8 @@
 
 [![OpenClaw](https://img.shields.io/badge/Built%20for-OpenClaw-blue)](https://openclaw.ai)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/yourname/skillflow/releases)
+[![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/zhangyuandu/skillflow/releases)
+[![Gitee](https://img.shields.io/badge/Gitee-镜像-orange)](https://gitee.com/skillflow/skillflow)
 
 ---
 
@@ -41,7 +42,7 @@
 skillhub install skillflow
 
 # 或通过 GitHub 下载
-wget https://github.com/yourname/skillflow/releases/latest/download/skillflow.skill
+wget https://github.com/zhangyuandu/skillflow/releases/latest/download/skillflow.skill
 openclaw skill install skillflow.skill
 ```
 
@@ -302,7 +303,8 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 - [OpenClaw 官网](https://openclaw.ai)
 - [OpenClaw Skillhub](https://clawhub.com)
-- [GitHub 仓库](https://github.com/yourname/skillflow)
+- [GitHub 仓库](https://github.com/zhangyuandu/skillflow)
+- [Gitee 镜像](https://gitee.com/skillflow/skillflow) (国内访问更快)
 
 ---
 
