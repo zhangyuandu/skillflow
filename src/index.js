@@ -7,6 +7,9 @@
  * 3. run() - 完整编排执行
  */
 
+const fs = require('fs');
+const path = require('path');
+
 // ============================================================================
 // 核心 API
 // ============================================================================
@@ -128,11 +131,37 @@ async function run(task, context = {}) {
 
 /**
  * 发现可用技能
+ * @returns {Promise<object>} 技能映射
  */
 async function discoverSkills() {
-  // 实际实现会扫描 ~/.openclaw/skills 和 ~/.openclaw/workspace/skills
-  // 这里返回一个基于常见技能的映射
+  // 尝试从 discovery.js 获取实际技能
+  try {
+    const discoveryPath = path.join(__dirname, '..', 'scripts', 'discovery.js');
+    const cachePath = path.join(process.env.HOME, '.openclaw', 'cache', 'skillflow-registry.json');
+    
+    // 如果缓存存在且未过期，直接使用
+    if (fs.existsSync(cachePath)) {
+      const cache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+      if (cache.skills) {
+        return cache.skills;
+      }
+    }
+    
+    // 否则运行 discovery.js
+    if (fs.existsSync(discoveryPath)) {
+      const { execSync } = require('child_process');
+      const output = execSync(`node ${discoveryPath}`, { encoding: 'utf-8' });
+      const registry = JSON.parse(output.split('\n').pop());
+      if (registry.skills) {
+        return registry.skills;
+      }
+    }
+  } catch (error) {
+    // 如果失败，回退到内置技能
+    console.warn('技能发现失败，使用内置技能:', error.message);
+  }
   
+  // 内置回退技能
   return {
     'tavily-search': {
       name: 'tavily-search',

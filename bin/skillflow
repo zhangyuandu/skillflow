@@ -33,7 +33,16 @@ try {
 // CLI 命令
 // ============================================================================
 
+const pkg = require('../package.json');
+
 const commands = {
+  /**
+   * 显示版本
+   */
+  async version() {
+    console.log(`🌊 SkillFlow v${pkg.version}`);
+  },
+
   /**
    * 生成执行计划
    */
@@ -256,7 +265,11 @@ const commands = {
   history [n]        查看最近 n 条历史
   skills             列出可用技能
   pipeline <file>    执行 Pipeline
+  version            显示版本
   help               显示帮助
+
+选项:
+  --version, -v      显示版本
 
 示例:
   skillflow plan "搜索AI新闻，总结后保存到飞书文档"
@@ -277,6 +290,12 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || 'help';
   const commandArgs = args.slice(1);
+
+  // Handle --version flag
+  if (command === '--version' || command === '-v') {
+    await commands.version();
+    return;
+  }
 
   if (commands[command]) {
     await commands[command](commandArgs);
