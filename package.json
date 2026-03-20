@@ -1,0 +1,18 @@
+{
+  "name": "skillflow",
+  "version": "1.0.0",
+  "description": "Universal intelligent task orchestration engine",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests/unit/planner.test.js && node tests/unit/executor.test.js",
+    "test:unit": "node tests/unit/*.test.js",
+    "test:integration": "node tests/integration/*.test.js"
+  },
+  "keywords": [
+    "orchestration",
+    "ai",
+    "task-planning",
+    "workflow"
+  ],
+  "license": "MIT"
+}
