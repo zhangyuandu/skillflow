@@ -1,6 +1,6 @@
 {
   "name": "skillflow",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Universal intelligent task orchestration engine - 让技能自然流动",
   "main": "src/index.js",
   "bin": {

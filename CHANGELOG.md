@@ -19,6 +19,47 @@
 
 ---
 
+## [0.1.2] - 2026-03-23
+
+### 新增
+
+#### 并行执行引擎修复
+- ✨ 修复 ParallelExecutor 核心 bug
+  - `_findStep()` 现在正确从 steps 数组查找
+  - `_findSkill()` 优先使用 skill_hint，其次 action
+  - 失败传播机制完善
+- 🔧 新增 `runParallel()` API
+- 🔧 自动注册 skillRegistry
+
+#### 技能发现增强 (v2)
+- ✨ 扫描 21 个技能
+- 📋 新增字段：version, permissions, keywords, usage, security, lastUpdated
+- 🔐 集成 skill-safety 安全扫描
+- 🌐 扩展能力关键词库（30+ 类别）
+
+#### CLI 增强
+- ✨ `skillflow test --parallel` 运行并行测试
+- ✨ `skillflow version` 显示版本
+- ✨ `skillflow config [set]` 配置管理
+- 💾 配置持久化到 `~/.openclaw/skillflow-config.json`
+
+#### AI 团队协作
+- ✨ 发布队列机制（publish/ 目录）
+- ⏱️ 定时检测脚本（每 15 分钟）
+- 📮 简化版反馈系统
+
+### 修复
+- ParallelExecutor 步骤传递问题
+- 技能匹配逻辑
+- 依赖图构建
+- 缓存格式问题
+
+---
+
+## [0.1.1] - 2026-03-23
+
+---
+
 ## [0.1.1] - 2026-03-23
 
 ### 新增
