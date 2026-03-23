@@ -311,34 +311,57 @@ function analyzeIntent(task) {
 }
 
 /**
- * 匹配技能
+ * 匹配技能 - 优化版本
  */
 function matchSkills(intent, skills) {
   const matched = [];
+  const scores = new Map();
   
   for (const [name, skill] of Object.entries(skills)) {
-    // 检查动作匹配
-    const actionMatch = intent.actions.some(action => 
-      skill.capabilities.some(cap => 
-        cap.toLowerCase().includes(action.toLowerCase()) ||
-        action.toLowerCase().includes(cap.toLowerCase())
-      )
-    );
+    let score = 0;
     
-    // 检查对象匹配
-    const objectMatch = intent.objects.some(obj =>
-      skill.capabilities.some(cap =>
-        cap.toLowerCase().includes(obj.toLowerCase()) ||
-        obj.toLowerCase().includes(cap.toLowerCase())
-      )
-    );
+    // 检查动作匹配（高权重）
+    for (const action of intent.actions) {
+      for (const cap of skill.capabilities || []) {
+        if (cap.toLowerCase().includes(action.toLowerCase()) ||
+            action.toLowerCase().includes(cap.toLowerCase())) {
+          score += 10;
+          break;
+        }
+      }
+    }
     
-    if (actionMatch || objectMatch) {
-      matched.push(skill);
+    // 检查对象匹配（中权重）
+    for (const obj of intent.objects) {
+      for (const cap of skill.capabilities || []) {
+        if (cap.toLowerCase().includes(obj.toLowerCase()) ||
+            obj.toLowerCase().includes(cap.toLowerCase())) {
+          score += 5;
+          break;
+        }
+      }
+    }
+    
+    // 检查描述关键词匹配（低权重）
+    const desc = (skill.description || '').toLowerCase();
+    for (const action of intent.actions) {
+      if (desc.includes(action)) {
+        score += 2;
+      }
+    }
+    
+    if (score > 0) {
+      scores.set(name, score);
+      matched.push({ ...skill, score });
     }
   }
   
-  return matched;
+  // 按分数排序，返回前5个最相关的
+  matched.sort((a, b) => b.score - a.score);
+  return matched.slice(0, 5).map(s => {
+    delete s.score;
+    return s;
+  });
 }
 
 /**
