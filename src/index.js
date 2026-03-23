@@ -10,6 +10,14 @@
 const fs = require('fs');
 const path = require('path');
 
+// 导入并行执行器
+let ParallelExecutor;
+try {
+  ParallelExecutor = require('./parallel').ParallelExecutor;
+} catch (e) {
+  console.warn('ParallelExecutor 加载失败:', e.message);
+}
+
 // ============================================================================
 // 核心 API
 // ============================================================================
@@ -77,7 +85,7 @@ async function execute_step(step, context = {}) {
 }
 
 /**
- * 完整执行 - 从任务到结果
+ * 完整执行 - 从任务到结果（顺序执行）
  * 
  * @param {string} task - 用户任务描述
  * @param {object} context - 执行上下文
@@ -122,6 +130,63 @@ async function run(task, context = {}) {
     plan: planResult,
     execution: executionContext,
     result: getFinalOutput(executionContext)
+  };
+}
+
+/**
+ * 并行执行 - 自动检测并并行执行独立步骤
+ * 
+ * @param {string} task - 用户任务描述
+ * @param {object} options - 执行选项
+ * @returns {Promise<object>} 执行结果
+ */
+async function runParallel(task, options = {}) {
+  if (!ParallelExecutor) {
+    console.warn('ParallelExecutor 不可用，回退到顺序执行');
+    return run(task, options);
+  }
+  
+  // 1. 规划
+  const planResult = await plan(task, options);
+  
+  if (planResult.plan.length === 0) {
+    return {
+      success: true,
+      task,
+      plan: planResult,
+      result: null,
+      message: '没有生成执行步骤'
+    };
+  }
+  
+  // 2. 创建并行执行器
+  const executor = new ParallelExecutor({
+    maxConcurrency: options.maxConcurrency || 5,
+    timeout: options.timeout || 60000
+  });
+  
+  // 3. 注册技能
+  const skills = await discoverSkills();
+  for (const [name, skill] of Object.entries(skills)) {
+    executor.registerSkill(name, {
+      async execute(inputs) {
+        return invokeSkill(name, inputs);
+      }
+    });
+  }
+  
+  // 4. 执行计划
+  const result = await executor.executePlan(planResult.plan, options);
+  
+  return {
+    success: result.success,
+    task,
+    plan: planResult,
+    completed: result.completed_steps,
+    failed: result.failed_steps,
+    history: result.history,
+    stats: result.stats,
+    result: getFinalOutput({ completed_steps: result.completed_steps })
   };
 }
 
@@ -389,8 +454,10 @@ module.exports = {
   plan,
   execute_step,
   run,
+  runParallel,
   discoverSkills,
   analyzeIntent,
   matchSkills,
-  generatePlan
+  generatePlan,
+  ParallelExecutor
 };

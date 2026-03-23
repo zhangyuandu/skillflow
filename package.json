@@ -1,7 +1,7 @@
 {
   "name": "skillflow",
-  "version": "1.0.0",
-  "description": "Universal intelligent task orchestration engine",
+  "version": "0.1.1",
+  "description": "Universal intelligent task orchestration engine - 让技能自然流动",
   "main": "src/index.js",
   "bin": {
     "skillflow": "./bin/skillflow"
@@ -15,10 +15,23 @@
     "orchestration",
     "ai",
     "task-planning",
-    "workflow"
+    "workflow",
+    "openclaw",
+    "skill"
   ],
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skillflow-ai/skillflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/skillflow-ai/skillflow/issues"
+  },
+  "homepage": "https://github.com/skillflow-ai/skillflow#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
   }
 }

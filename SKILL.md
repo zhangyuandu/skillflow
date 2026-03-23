@@ -257,12 +257,47 @@ See [references/architecture.md](references/architecture.md) for:
 - Execution engine internals
 - Extension points
 
+## Security Integration
+
+SkillFlow integrates with skill-safety to protect against malicious skills:
+
+### Automatic Safety Check
+
+Before installing a new skill, SkillFlow automatically:
+
+1. **Scans** - Analyzes skill code for risks (exec, network, file access)
+2. **Rates** - Assigns risk level (SAFE/LOW/MEDIUM/HIGH/CRITICAL)
+3. **Decides** - Allows, confirms, or blocks based on configuration
+
+### Risk Levels
+
+| Level | Action | Description |
+|-------|--------|-------------|
+| SAFE | ✅ Auto-install | No risky operations |
+| LOW | ✅ Auto-install | Minor file/IO operations |
+| MEDIUM | ⚠️ Confirm | Network or moderate file access |
+| HIGH | ⚠️ Confirm | Command execution capability |
+| CRITICAL | ⛔ Block | Dangerous operations detected |
+
+### Configuration
+
+Create `~/.openclaw/safety-config.json` to customize:
+
+```json
+{
+  "autoBlock": ["CRITICAL"],
+  "requireConfirm": ["HIGH", "MEDIUM"],
+  "whitelist": ["skillflow", "skill-safety"]
+}
+```
+
 ## Best Practices
 
 1. **Start simple** - Let orchestrator plan, don't over-specify
 2. **Provide context** - More context = better planning
 3. **Trust the system** - SkillFlow handles complexity
-4. **Iterate** - Refine based on results
+4. **Review skills** - Check safety reports before installing unknown skills
+5. **Iterate** - Refine based on results
 
 ## Limitations
 

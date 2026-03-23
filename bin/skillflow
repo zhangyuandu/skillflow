@@ -9,6 +9,7 @@
  *   skillflow status              # 查看状态
  *   skillflow history             # 查看执行历史
  *   skillflow skills              # 列出可用技能
+ *   skillflow test                # 运行测试
  */
 
 const path = require('path');
@@ -18,15 +19,54 @@ const fs = require('fs');
 const corePath = path.join(__dirname, '..', 'src', 'index.js');
 const pipelinePath = path.join(__dirname, '..', 'src', 'pipeline.js');
 const historyPath = path.join(__dirname, '..', 'src', 'history.js');
+const parallelPath = path.join(__dirname, '..', 'src', 'parallel.js');
 
-let skillflow, Pipeline, getHistoryManager;
+let skillflow, Pipeline, getHistoryManager, ParallelExecutor;
 try {
   skillflow = require(corePath);
   Pipeline = require(pipelinePath).Pipeline;
   getHistoryManager = require(historyPath).getHistoryManager;
+  ParallelExecutor = require(parallelPath).ParallelExecutor;
 } catch (e) {
   console.error('❌ 无法加载 SkillFlow 核心模块:', e.message);
   process.exit(1);
+}
+
+// ============================================================================
+// 配置管理
+// ============================================================================
+
+const CONFIG_PATH = path.join(process.env.HOME, '.openclaw', 'skillflow-config.json');
+
+function loadConfig() {
+  const defaultConfig = {
+    execution: {
+      parallel: true,
+      maxConcurrency: 5,
+      timeout: 60000
+    },
+    logging: {
+      verbose: false
+    }
+  };
+  
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      const userConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+      return { ...defaultConfig, ...userConfig };
+    }
+  } catch (e) {
+    // 忽略
+  }
+  return defaultConfig;
+}
+
+function saveConfig(config) {
+  const dir = path.dirname(CONFIG_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
 // ============================================================================
@@ -41,6 +81,113 @@ const commands = {
    */
   async version() {
     console.log(`🌊 SkillFlow v${pkg.version}`);
+    console.log(`   并行执行: ${ParallelExecutor ? '✅ 支持' : '❌ 不支持'}`);
+  },
+
+  /**
+   * 显示配置
+   */
+  async config(args) {
+    const config = loadConfig();
+    
+    if (args[0] === 'set') {
+      const key = args[1];
+      const value = args[2];
+      
+      if (!key || value === undefined) {
+        console.log('用法: skillflow config set <key> <value>');
+        console.log('例如: skillflow config set execution.maxConcurrency 3');
+        process.exit(1);
+      }
+      
+      // 解析嵌套key
+      const keys = key.split('.');
+      let obj = config;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!obj[keys[i]]) obj[keys[i]] = {};
+        obj = obj[keys[i]];
+      }
+      
+      // 转换值类型
+      let finalValue = value;
+      if (value === 'true') finalValue = true;
+      else if (value === 'false') finalValue = false;
+      else if (!isNaN(value)) finalValue = Number(value);
+      
+      obj[keys[keys.length - 1]] = finalValue;
+      saveConfig(config);
+      console.log(`✅ 已设置 ${key} = ${finalValue}`);
+      return;
+    }
+    
+    console.log('📋 SkillFlow 配置\n');
+    console.log(JSON.stringify(config, null, 2));
+    console.log('\n用法: skillflow config set <key> <value>');
+  },
+
+  /**
+   * 运行测试
+   */
+  async test(args) {
+    const isParallel = args.includes('--parallel') || args.includes('-p');
+    const verbose = args.includes('--verbose') || args.includes('-v');
+    
+    console.log('🧪 SkillFlow 测试\n');
+    
+    const tests = [
+      { name: 'Planner Tests', file: 'tests/unit/planner.test.js' },
+      { name: 'Executor Tests', file: 'tests/unit/executor.test.js' },
+      { name: 'Integration Tests', file: 'tests/integration/orchestration.test.js' }
+    ];
+    
+    if (isParallel) {
+      tests.push({ name: 'Parallel Tests', file: 'tests/integration/parallel.test.js' });
+    }
+    
+    let passed = 0;
+    let failed = 0;
+    
+    for (const test of tests) {
+      const testPath = path.join(__dirname, '..', test.file);
+      
+      if (!fs.existsSync(testPath)) {
+        if (verbose) console.log(`  ⏭️  ${test.name}: 跳过 (文件不存在)`);
+        continue;
+      }
+      
+      if (verbose) console.log(`\n📝 ${test.name}...`);
+      
+      try {
+        const { execSync } = require('child_process');
+        const result = execSync(`node "${testPath}"`, { 
+          cwd: path.join(__dirname, '..'),
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        });
+        
+        if (result.includes('passed')) {
+          console.log(`  ✅ ${test.name}: 通过`);
+          passed++;
+        } else {
+          console.log(`  ⚠️  ${test.name}: 结果未知`);
+        }
+      } catch (e) {
+        if (e.stdout && e.stdout.includes('passed')) {
+          console.log(`  ✅ ${test.name}: 通过`);
+          passed++;
+        } else {
+          console.log(`  ❌ ${test.name}: 失败`);
+          failed++;
+          if (verbose) console.log(`     ${e.message}`);
+        }
+      }
+    }
+    
+    console.log(`\n📊 测试结果: ${passed} 通过, ${failed} 失败`);
+    
+    if (failed > 0) {
+      process.exit(1);
+    }
   },
 
   /**
@@ -56,6 +203,11 @@ const commands = {
     
     console.log('📋 生成执行计划...\n');
     console.log('任务:', task);
+    
+    const config = loadConfig();
+    if (config.logging.verbose) {
+      console.log('配置:', JSON.stringify(config.execution));
+    }
     
     try {
       const result = await skillflow.plan(task);
@@ -97,8 +249,20 @@ const commands = {
     const planData = JSON.parse(fs.readFileSync(planFile, 'utf-8'));
     console.log('🚀 执行计划...\n');
     
+    const config = loadConfig();
+    
     try {
-      const result = await skillflow.run(planData.task || planData.plan[0]?.action);
+      const options = {
+        parallel: config.execution.parallel,
+        maxConcurrency: config.execution.maxConcurrency,
+        timeout: config.execution.timeout
+      };
+      
+      if (config.logging.verbose) {
+        console.log('执行选项:', JSON.stringify(options));
+      }
+      
+      const result = await skillflow.run(planData.task || planData.plan[0]?.action, options);
       
       if (result.success) {
         console.log('✅ 执行成功');
@@ -130,8 +294,19 @@ const commands = {
     
     console.log('🎯 执行任务:', task);
     
+    const config = loadConfig();
+    const options = {
+      parallel: config.execution.parallel,
+      maxConcurrency: config.execution.maxConcurrency,
+      timeout: config.execution.timeout
+    };
+    
+    if (config.logging.verbose) {
+      console.log('配置:', JSON.stringify(options));
+    }
+    
     try {
-      const result = await skillflow.run(task);
+      const result = await skillflow.run(task, options);
       
       if (result.success) {
         console.log('\n✅ 任务完成');
@@ -164,8 +339,14 @@ const commands = {
     
     const history = getHistoryManager();
     const stats = history.stats();
+    const config = loadConfig();
     
-    console.log('执行统计:');
+    console.log('执行配置:');
+    console.log(`  并行执行: ${config.execution.parallel ? '✅ 启用' : '❌ 禁用'}`);
+    console.log(`  最大并发: ${config.execution.maxConcurrency}`);
+    console.log(`  超时时间: ${config.execution.timeout}ms`);
+    
+    console.log('\n执行统计:');
     console.log(`  总执行次数: ${stats.total}`);
     console.log(`  成功率: ${stats.successRate}`);
     console.log(`  平均耗时: ${stats.avgDuration}ms`);
@@ -238,7 +419,6 @@ const commands = {
     
     console.log('🔄 执行 Pipeline...\n');
     
-    // 简单示例
     const pipe = new Pipeline('custom');
     pipe.stage('start', data => data);
     
@@ -252,29 +432,38 @@ const commands = {
    */
   help() {
     console.log(`
-🌊 SkillFlow - 通用智能任务编排引擎
+🌊 SkillFlow - 通用智能任务编排引擎 v${pkg.version}
 
 用法:
   skillflow <command> [args]
 
 命令:
-  plan "任务"        生成执行计划
-  execute <file>     执行计划文件
-  run "任务"         规划并执行
-  status             查看状态统计
-  history [n]        查看最近 n 条历史
-  skills             列出可用技能
-  pipeline <file>    执行 Pipeline
-  version            显示版本
-  help               显示帮助
+  plan "任务"          生成执行计划
+  execute <file>       执行计划文件
+  run "任务"           规划并执行
+  status               查看状态统计
+  history [n]          查看最近 n 条历史
+  skills               列出可用技能
+  pipeline <file>      执行 Pipeline
+  test [--parallel]    运行测试
+  config [set <k> <v>] 查看/设置配置
+  version              显示版本
+  help                 显示帮助
 
 选项:
-  --version, -v      显示版本
+  --version, -v       显示版本
+  --parallel, -p       并行模式
+  --verbose, -v        详细输出
 
 示例:
   skillflow plan "搜索AI新闻，总结后保存到飞书文档"
   skillflow run "分析代码库并生成报告"
   skillflow history 5
+  skillflow test --parallel
+  skillflow config set execution.maxConcurrency 3
+
+配置文件:
+  ${CONFIG_PATH}
 
 文档:
   https://github.com/zhangyuandu/skillflow

@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
- * Skill Discovery Script (Node.js 版本)
+ * Skill Discovery Script (增强版 v2)
  * 
- * 更可靠的技能发现实现
+ * 改进：
+ * 1. 增强元数据提取（支持更多字段）
+ * 2. 集成 skill-safety 扫描
+ * 3. 支持能力向量（可选）
  */
 
 const fs = require('fs');
@@ -17,9 +20,10 @@ const SKILL_DIRS = [
 const CACHE_FILE = process.env.HOME + '/.openclaw/cache/skillflow-registry.json';
 
 /**
- * 提取技能元数据
+ * 提取技能元数据（增强版）
  */
-function extractSkillMetadata(skillMdPath) {
+function extractSkillMetadata(skillDir) {
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
   if (!fs.existsSync(skillMdPath)) {
     return null;
   }
@@ -46,25 +50,129 @@ function extractSkillMetadata(skillMdPath) {
   const descMatch = frontmatter.match(/^description:\s*["']?(.+?)["']?\s*$/m);
   const description = descMatch ? descMatch[1].trim().replace(/^["']|["']$/g, '') : '';
 
-  // 提取能力
-  const capabilities = [];
-  const capKeywords = ['search', 'write', 'read', 'create', 'edit', 'delete', 
-                       'upload', 'download', 'summarize', 'translate', 'execute',
-                       'analyze', 'fetch', 'send', 'notify', 'browse', 'plan'];
-  
-  const lowerDesc = description.toLowerCase();
-  capKeywords.forEach(cap => {
-    if (lowerDesc.includes(cap)) {
-      capabilities.push(cap);
-    }
-  });
+  // 解析 version
+  const versionMatch = frontmatter.match(/^version:\s*(.+)$/m);
+  const version = versionMatch ? versionMatch[1].trim().replace(/^["']|["']$/g, '') : '1.0.0';
+
+  // 解析 permissions（新增）
+  const permissionsMatch = frontmatter.match(/^permissions:\s*\n((?:\s*-\s*.+\n?)+)/m);
+  const permissions = [];
+  if (permissionsMatch) {
+    permissionsMatch[1].split('\n').forEach(line => {
+      const match = line.match(/-\s*(\w+(?::\w+)?)/);
+      if (match) permissions.push(match[1]);
+    });
+  }
+
+  // 提取 capabilities（增强关键词库）
+  const capabilities = extractCapabilities(description + ' ' + content, content);
+
+  // 提取 usage examples
+  const usageMatch = content.match(/```(?:bash|javascript|js)([\s\S]*?)```/);
+  const usage = usageMatch ? usageMatch[1].trim() : null;
+
+  // 提取 keywords
+  const keywordsMatch = frontmatter.match(/^keywords:\s*(.+)$/m);
+  const keywords = keywordsMatch 
+    ? keywordsMatch[1].split(',').map(k => k.trim())
+    : [];
 
   return {
     name,
-    description: description.substring(0, 200),
+    description: description.substring(0, 300),
+    version,
     capabilities,
-    path: path.dirname(skillMdPath)
+    permissions,
+    keywords,
+    usage,
+    path: skillDir,
+    lastUpdated: fs.statSync(skillMdPath).mtime.toISOString()
   };
+}
+
+/**
+ * 提取能力列表（扩展关键词库）
+ */
+function extractCapabilities(description, content) {
+  const capabilities = [];
+  
+  // 扩展关键词库
+  const capKeywords = {
+    // 搜索/获取
+    search: ['search', '查找', '找', 'query'],
+    fetch: ['fetch', 'get', '获取', '拉取'],
+    browse: ['browse', '浏览', '访问', 'visit'],
+    
+    // 处理
+    summarize: ['summarize', '总结', '摘要', '概括'],
+    analyze: ['analyze', '分析', '解析'],
+    translate: ['translate', '翻译', 'convert'],
+    convert: ['convert', '转换', 'transform'],
+    generate: ['generate', '生成', '创建'],
+    
+    // 文件操作
+    read: ['read', '读取', '查看'],
+    write: ['write', '写入', '保存', 'save'],
+    edit: ['edit', '编辑', '修改'],
+    delete: ['delete', '删除', 'remove'],
+    upload: ['upload', '上传'],
+    download: ['download', '下载'],
+    
+    // 通信
+    send: ['send', '发送', '发'],
+    notify: ['notify', '通知', '提醒'],
+    email: ['email', 'mail', '邮件'],
+    
+    // 执行
+    execute: ['execute', '执行', 'run', '运行'],
+    schedule: ['schedule', '定时', 'cron', '调度'],
+    
+    // AI 能力
+    plan: ['plan', '规划', '计划', '拆分'],
+    chat: ['chat', '对话', '聊天', '问答'],
+    embed: ['embed', 'embedding', '向量'],
+    
+    // 数据
+    weather: ['weather', '天气', 'forecast', '预报'],
+    finance: ['finance', '金融', 'stock', '股票', 'crypto', '加密'],
+    
+    // 区块链
+    blockchain: ['blockchain', 'crypto', 'token', 'web3'],
+    trade: ['trade', '交易', 'swap', 'exchange'],
+  };
+
+  const lowerDesc = (description + ' ' + content).toLowerCase();
+  
+  for (const [cap, keywords] of Object.entries(capKeywords)) {
+    if (keywords.some(kw => lowerDesc.includes(kw))) {
+      capabilities.push(cap);
+    }
+  }
+
+  return [...new Set(capabilities)]; // 去重
+}
+
+/**
+ * 安全扫描（集成 skill-safety）
+ */
+async function scanSecurity(skillDir) {
+  const safetyScript = path.join(__dirname, '..', 'skill-safety', 'scripts', 'scan.js');
+  
+  if (!fs.existsSync(safetyScript)) {
+    return { level: 'UNKNOWN', risks: [] };
+  }
+
+  try {
+    const { scan } = require(safetyScript);
+    const result = scan(skillDir);
+    return {
+      level: result.level,
+      risks: result.risks.length,
+      permissions: result.permissions
+    };
+  } catch (e) {
+    return { level: 'UNKNOWN', error: e.message };
+  }
 }
 
 /**
@@ -77,82 +185,111 @@ function scanSkills() {
     if (!fs.existsSync(dir)) {
       return;
     }
-    
-    console.log(`[INFO] 扫描: ${dir}`);
-    
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    entries.forEach(entry => {
-      if (!entry.isDirectory()) {
-        return;
-      }
+
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
       
-      const skillMdPath = path.join(dir, entry.name, 'SKILL.md');
-      const metadata = extractSkillMetadata(skillMdPath);
-      
-      if (metadata) {
-        skills.push(metadata);
-        console.log(`[INFO]   发现: ${metadata.name}`);
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith('.')) continue;
+        
+        const skillDir = path.join(dir, entry.name);
+        const metadata = extractSkillMetadata(skillDir);
+        
+        if (metadata) {
+          skills.push(metadata);
+        }
       }
-    });
+    } catch (e) {
+      // 忽略权限错误
+    }
   });
-  
+
   return skills;
 }
 
 /**
- * 构建能力索引
+ * 保存缓存（转换为对象格式）
  */
-function buildCapabilityIndex(skills) {
-  const index = {};
+function saveCache(skills) {
+  // 转换为对象格式：{ skillName: skillData }
+  const skillsObj = {};
+  for (const skill of skills) {
+    skillsObj[skill.name] = skill;
+  }
   
-  skills.forEach(skill => {
-    skill.capabilities.forEach(cap => {
-      if (!index[cap]) {
-        index[cap] = [];
-      }
-      index[cap].push(skill.name);
-    });
-  });
+  const cache = {
+    skills: skillsObj,
+    timestamp: new Date().toISOString(),
+    version: '2.0'
+  };
   
-  return index;
+  const dir = path.dirname(CACHE_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  
+  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 
 /**
- * 主函数
+ * 加载缓存
  */
-function main() {
-  console.log('[INFO] SkillFlow 技能发现');
-  console.log('--------------------------------');
-  
-  // 扫描技能
-  const skills = scanSkills();
-  console.log(`[INFO] 共发现 ${skills.length} 个技能`);
-  
-  // 构建能力索引
-  console.log('[INFO] 构建能力索引...');
-  const capabilitiesIndex = buildCapabilityIndex(skills);
-  
-  // 创建注册表
-  const registry = {
-    skills: skills.reduce((acc, skill) => {
-      acc[skill.name] = skill;
-      return acc;
-    }, {}),
-    capabilities_index: capabilitiesIndex,
-    last_updated: new Date().toISOString()
-  };
-  
-  // 保存缓存
-  const cacheDir = path.dirname(CACHE_FILE);
-  if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
+function loadCache() {
+  if (!fs.existsSync(CACHE_FILE)) {
+    return null;
   }
-  fs.writeFileSync(CACHE_FILE, JSON.stringify(registry, null, 2));
   
-  console.log(`[INFO] 注册表已保存: ${CACHE_FILE}`);
-  
-  // 输出
-  console.log('\n' + JSON.stringify(registry, null, 2));
+  try {
+    const cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
+    
+    // 检查缓存是否过期（24小时）
+    const cacheAge = Date.now() - new Date(cache.timestamp).getTime();
+    if (cacheAge > 24 * 60 * 60 * 1000) {
+      return null;
+    }
+    
+    return cache;
+  } catch (e) {
+    return null;
+  }
 }
 
-main();
+// ============================================================================
+// 主函数
+// ============================================================================
+
+async function main() {
+  // 尝试加载缓存
+  const cache = loadCache();
+  if (cache && cache.skills) {
+    console.log(JSON.stringify({ skills: cache.skills }, null, 2));
+    return;
+  }
+
+  // 扫描技能
+  const skills = scanSkills();
+  
+  // 添加安全信息（异步）
+  for (const skill of skills) {
+    const safety = await scanSecurity(skill.path);
+    skill.security = {
+      level: safety.level,
+      riskCount: safety.risks || 0,
+      permissionsDeclared: skill.permissions.length > 0
+    };
+  }
+
+  // 转换为对象格式输出
+  const skillsObj = {};
+  for (const skill of skills) {
+    skillsObj[skill.name] = skill;
+  }
+  
+  // 保存缓存
+  saveCache(skills);
+  
+  console.log(JSON.stringify({ skills: skillsObj }, null, 2));
+}
+
+main().catch(console.error);
