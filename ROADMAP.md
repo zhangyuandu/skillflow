@@ -92,7 +92,7 @@
 
 ### 4.2 发布到skillhub
 - [x] 打包skill文件
-- [ ] 提交到skillhub
+- [ ] 提交到skillhub（GitHub账户需14天，等待中）
 - [ ] 完善技能描述
 
 ### 4.3 社区推广
