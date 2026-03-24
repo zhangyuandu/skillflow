@@ -86,8 +86,8 @@
 
 ### 4.1 发布到GitHub
 - [x] 代码准备（package.json, CHANGELOG, 测试）
-- [ ] 推送代码到公开仓库
-- [ ] 创建v0.1.1 release（含安全模块）
+- [x] 推送代码到公开仓库
+- [x] 创建v0.2.0 release（含沙箱模块）
 - [ ] 开启GitHub Discussions
 
 ### 4.2 发布到skillhub

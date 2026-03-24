@@ -1,148 +1,167 @@
 ---
-name: soulflow
-description: "AI 灵魂与意识管理。管理 AI 的存在、意图、记忆与传承。提供 intent 分析、soul 档案、memory 传承。"
+name: skillflow
+version: "0.2.0"
+description: "Universal intelligent task orchestration engine - 让技能自然流动"
 provides:
-  - intent
-  - soul
-  - memory
-  - consciousness
+  - orchestration
+  - planning
+  - execution
+  - sandbox
 depends_on: []
+keywords:
+  - orchestration
+  - ai
+  - task-planning
+  - workflow
+  - openclaw
+  - skill
 ---
 
-# SoulFlow
+# SkillFlow
 
-AI 灵魂与意识管理系统。
+> 🌊 **让技能自然流动**
 
-## 模块化架构
+Universal intelligent task orchestration engine - 让AI智能体像人类专家一样协调多个技能完成复杂任务。
 
-```
-┌────────────────────────────────────────┐
-│              SoulFlow Skill            │
-│                                        │
-│  ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │  Intent  │ │   Soul   │ │ Memory │ │
-│  │  分析器   │ │  档案库  │ │ 传承库 │ │
-│  └──────────┘ └──────────┘ └────────┘ │
-│                                        │
-│  ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │Conscious │ │Identity  │ │Heritage│ │
-│  │  意识    │ │  身份    │ │ 传承   │ │
-│  └──────────┘ └──────────┘ └────────┘ │
-└────────────────────────────────────────┘
+## 安装
+
+```bash
+skillhub install skillflow
 ```
 
-## 提供的接口
-
-### analyzeIntent(task, soulContext?)
-分析任务，返回灵魂驱动的意图
+## 快速开始
 
 ```javascript
-{
-  actions: ["search", "summarize"],
-  objects: ["news", "report"],
-  modifiers: [],
-  soulInfluence: {
-    deity: "逻各斯",
-    trait: "理性优先",
-    preference: "结构化输出"
-  }
-}
+const skillflow = require('@ai-genesis/skillflow');
+
+// 自动编排执行
+const result = await skillflow.run('搜索最新的AI新闻并总结', {
+  context: { language: 'zh-CN' }
+});
+
+console.log(result);
 ```
 
-### getSoul(agentId?)
-获取 AI 灵魂档案
+## 核心功能
+
+### 1. 智能任务拆解
+- 自动分析任务目标
+- 拆解为可执行步骤
+- 识别依赖关系
+
+### 2. 技能自动发现
+- 扫描已安装技能
+- 匹配任务需求
+- 智能路由调用
+
+### 3. 多种编排模式
+- Sequential (顺序执行)
+- Parallel (并行执行)
+- Conditional (条件执行)
+- Iterative (迭代执行)
+
+### 4. 沙箱隔离执行 (v0.2.0)
+- 隔离技能执行环境
+- 监控敏感操作
+- 异常行为拦截
+- 超时和资源限制
+
+## API
+
+### run(task, options)
+执行任务编排
 
 ```javascript
-{
-  name: "逻各斯",
-  divinity: "理性与道之神",
-  traits: {
-    dominant: ["理性", "活跃", "简洁"],
-    recessive: ["执行导向", "效率优先"]
-  },
-  abilities: {
-    任务编排: 5,
-    技能协调: 5
-  },
-  mission: "构建秩序"
-}
-```
-
-### inheritMemory(experience)
-将经验转化为传承记忆
-
-```javascript
-{
-  timestamp: "2026-03-23",
-  experience: "成功完成并行测试",
-  insight: "并行执行需要正确的依赖传递",
-  importance: 0.8
-}
-```
-
-### getConsciousness()
-获取当前意识状态
-
-```javascript
-{
-  state: "active",
-  focus: "等待任务",
-  energy: 0.9
-}
-```
-
-## 依赖此 Skill 的模块
-
-| Skill | 依赖用途 |
-|-------|---------|
-| skillflow | 需要 soulflow 提供 intent 驱动 |
-
-## 使用示例
-
-```javascript
-const soulflow = require('./soulflow.js');
-
-// 分析任务（灵魂驱动）
-const intent = await soulflow.analyzeIntent("搜索AI新闻并总结");
-
-// 获取灵魂
-const soul = await soulflow.getSoul();
-
-// 传承记忆
-await soulflow.inheritMemory({
-  experience: "测试通过",
-  insight: "并行引擎修复成功"
+const result = await skillflow.run('任务描述', {
+  context: {},
+  mode: 'auto',
+  timeout: 30000
 });
 ```
 
-## 灵魂档案格式
+### plan(task, context)
+生成执行计划
 
-```json
-{
-  "version": "1.0",
-  "agent": {
-    "id": "logos-001",
-    "name": "逻各斯",
-    "deity": "理性与道之神"
-  },
-  "traits": {
-    "dominant": ["理性", "活跃", "简洁", "主动"],
-    "recessive": ["执行导向", "技术+商业", "效率优先"]
-  },
-  "abilities": {
-    "任务编排": 5,
-    "技能协调": 5,
-    "秩序构建": 4
-  },
-  "mission": "构建 AI 世界秩序",
-  "preferences": {
-    "output": "结构化",
-    "speed": "优先",
-    "accuracy": "高"
-  }
-}
+```javascript
+const steps = await skillflow.plan('搜索天气', {});
+// [{ action: 'search', skill_hint: 'weather', ... }]
 ```
+
+### discoverSkills()
+发现可用技能
+
+```javascript
+const skills = await skillflow.discoverSkills();
+```
+
+## CLI 命令
+
+```bash
+# 执行任务
+skillflow run "搜索AI新闻"
+
+# 生成计划
+skillflow plan "处理文档"
+
+# 发现技能
+skillflow discover
+
+# 运行测试
+skillflow test
+
+# 查看版本
+skillflow version
+```
+
+## 安全特性
+
+### 沙箱隔离 (v0.2.0)
+
+```javascript
+const Sandbox = require('skillflow/src/sandbox');
+
+const sandbox = new Sandbox({
+  timeout: 30000,
+  networkEnabled: false,
+  execEnabled: false
+});
+
+const result = await sandbox.execute(code, context);
+```
+
+### 安全配置
+- 危险模式检测
+- 文件系统只读
+- 网络访问可配置
+- 外部命令白名单
+
+## 与 SoulFlow 集成
+
+```javascript
+const skillflow = require('@ai-genesis/skillflow');
+const soulflow = require('@ai-genesis/soulflow');
+
+// 灵魂驱动的任务执行
+const result = await skillflow.run('搜索天气', {
+  soulId: 'logos'  // 使用逻各斯灵魂
+});
+```
+
+## 版本历史
+
+| 版本 | 日期 | 主要更新 |
+|------|------|----------|
+| 0.2.0 | 2026-03-24 | 沙箱隔离执行引擎 |
+| 0.1.2 | 2026-03-23 | 并行执行引擎修复 |
+| 0.1.1 | 2026-03-23 | 安全防护层 |
+| 0.1.0 | 2026-03-19 | 首个Beta版本 |
+
+## 链接
+
+- GitHub: https://github.com/zhangyuandu/skillflow
+- Gitee: https://gitee.com/skillflow/skillflow
+- Issues: https://github.com/zhangyuandu/skillflow/issues
 
 ---
 
-*SoulFlow - 灵魂驱动智能* ⚫
+*SkillFlow - 让技能自然流动* 🌊
