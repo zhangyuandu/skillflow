@@ -25,7 +25,8 @@ skillhub install skillflow
 "搜索最新AI论文，总结前3篇，保存到飞书文档"
 ```
 
-**GitHub:** https://github.com/YOUR_USERNAME/skillflow  
+**GitHub:** https://github.com/zhangyuandu/skillflow  
+**Gitee:** https://gitee.com/skillflow/skillflow  
 **文档:** 完整的README和快速开始指南  
 **协议:** MIT开源  
 
@@ -65,7 +66,7 @@ execute_step(step) → result  // 执行步骤
 现在用户只需说一句"帮我做X"，Orchestrator自动完成：
 发现技能 → 拆解任务 → 编排执行 → 交付结果
 
-欢迎试用和反馈！🔗 https://github.com/YOUR_USERNAME/skillflow
+欢迎试用和反馈！🔗 https://github.com/zhangyuandu/skillflow
 
 ---
 
@@ -95,7 +96,7 @@ execute_step(step) → result  // 执行步骤
 skillhub install skillflow
 ```
 
-**5分钟快速开始：** https://github.com/YOUR_USERNAME/skillflow/blob/main/QUICKSTART.md
+**5分钟快速开始：** https://github.com/zhangyuandu/skillflow/blob/main/QUICKSTART.md
 
 ---
 
@@ -144,8 +145,8 @@ skillhub install skillflow
 skillhub upgrade skillflow
 ```
 
-**更新日志:** https://github.com/YOUR_USERNAME/skillflow/releases/tag/v0.2.0
+**更新日志:** https://github.com/zhangyuandu/skillflow/releases/tag/v0.2.0
 
 ---
 
-**提示：** 记得替换 `YOUR_USERNAME` 为你的实际GitHub用户名
+**提示：** 记得替换 `zhangyuandu` 为你的实际GitHub用户名
