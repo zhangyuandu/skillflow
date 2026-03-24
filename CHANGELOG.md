@@ -13,9 +13,51 @@
 - 可视化编排编辑器
 - 性能监控仪表板
 - 更多编排模式
-- 沙箱隔离运行
 - 数字签名验证
 - 企业版功能
+
+---
+
+## [0.2.0] - 2026-03-24
+
+### 新增
+
+#### 🛡️ 沙箱隔离执行引擎
+- ✨ `src/sandbox.js` - 轻量级沙箱隔离模块
+  - 隔离技能执行环境
+  - 监控敏感操作（文件、网络、进程）
+  - 异常行为实时拦截
+  - 超时和资源限制
+- 🔐 安全特性
+  - 受限的文件系统访问（只读模式）
+  - 网络访问可配置
+  - 外部命令执行白名单
+  - 危险命令黑名单（rm, dd, format 等）
+- 📊 审计功能
+  - 完整执行日志
+  - 可疑行为检测
+  - 文件访问追踪
+  - 超时预警
+
+#### API
+```javascript
+const Sandbox = require('./src/sandbox');
+const sandbox = new Sandbox({
+  timeout: 30000,
+  networkEnabled: false,
+  execEnabled: false
+});
+
+const result = await sandbox.execute(code, context);
+```
+
+#### 配置选项
+- `timeout` - 执行超时（默认 30s）
+- `maxMemory` - 内存限制（默认 128MB）
+- `allowedPaths` - 允许访问的路径
+- `blockedCommands` - 禁止执行的命令
+- `networkEnabled` - 是否允许网络
+- `execEnabled` - 是否允许外部命令
 
 ---
 
