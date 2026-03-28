@@ -18,6 +18,15 @@ try {
   console.warn('ParallelExecutor 加载失败:', e.message);
 }
 
+// 导入 SoulFlow Bridge 集成
+let soulflow;
+try {
+  soulflow = require('./skillflow-integration');
+} catch (e) {
+  console.warn('SoulFlow Integration 加载失败:', e.message);
+  soulflow = null;
+}
+
 // ============================================================================
 // 核心 API
 // ============================================================================
@@ -30,6 +39,19 @@ try {
  * @returns {Promise<object>} 执行计划
  */
 async function plan(task, context = {}) {
+  // 0. 决策过滤器（记忆驱动）
+  let decision = null;
+  if (soulflow) {
+    decision = await soulflow.decideStrategy(task, context);
+    context.decision = decision;
+    
+    // 如果需要检索记忆
+    if (decision.needsMemoryRecall) {
+      const memory = await soulflow.recallMemory(task);
+      context.relevantMemory = memory;
+    }
+  }
+  
   // 1. 发现可用技能
   const skills = await discoverSkills();
   
@@ -47,6 +69,7 @@ async function plan(task, context = {}) {
     intent,
     skills: matchedSkills.map(s => s.name),
     plan,
+    decision,
     context
   };
 }
@@ -61,6 +84,11 @@ async function plan(task, context = {}) {
 async function execute_step(step, context = {}) {
   const startTime = Date.now();
   
+  // 执行前注入上下文
+  if (soulflow) {
+    step = await soulflow.injectContext(step);
+  }
+  
   try {
     // 准备输入
     const inputs = prepareInputs(step, context);
@@ -68,18 +96,42 @@ async function execute_step(step, context = {}) {
     // 执行（这里返回模拟结果，实际会调用技能）
     const result = await invokeSkill(step.skill_hint || step.action, inputs);
     
+    const duration = Date.now() - startTime;
+    
+    // 执行后记录经验
+    if (soulflow) {
+      await soulflow.recordExperience(step, {
+        success: true,
+        output: result,
+        duration
+      });
+    }
+    
     return {
       success: true,
       output: result,
       stepId: step.id,
-      duration: Date.now() - startTime
+      duration,
+      soulContext: step.soulContext
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    
+    // 记录失败经验
+    if (soulflow) {
+      await soulflow.recordExperience(step, {
+        success: false,
+        error: error.message,
+        duration
+      });
+    }
+    
     return {
       success: false,
       error: error.message,
       stepId: step.id,
-      duration: Date.now() - startTime
+      duration,
+      soulContext: step.soulContext
     };
   }
 }
@@ -482,5 +534,12 @@ module.exports = {
   analyzeIntent,
   matchSkills,
   generatePlan,
-  ParallelExecutor
+  ParallelExecutor,
+  // SoulFlow Bridge 集成
+  soulflow: {
+    decideStrategy: () => soulflow?.decideStrategy(),
+    recallMemory: (query, type) => soulflow?.recallMemory(query, type),
+    reflect: (topic, ctx) => soulflow?.reflect(topic, ctx),
+    getStats: () => soulflow?.getMemoryStats()
+  }
 };

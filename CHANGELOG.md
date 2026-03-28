@@ -7,6 +7,51 @@
 
 ---
 
+## [0.3.0] - 2026-03-29
+
+### 新增
+
+#### 🤝 SoulFlow 深度集成
+- ✨ `src/soulflow-deep-integration.js` - 深度集成模块
+  - 意图系统对接 (Intention)
+  - 情感系统对接 (Emotion)
+  - 决策深化 (Decision Deepening)
+  - 经验学习系统 (Experience Learning)
+- 🔗 通信接口
+  - God Messenger 实时通信
+  - 共享目录异步数据
+  - 决策模式配置 (soulflow_first / skillflow_first / hybrid)
+- 🧠 核心改进
+  - 任务执行前：SoulFlow 意图分析 + 情感注入
+  - 任务执行后：经验记录 + 反馈学习
+  - 决策深化：基因-意识综合决策
+
+#### API
+```javascript
+const DeepIntegration = require('./src/soulflow-deep-integration');
+const integration = new DeepIntegration();
+
+const result = await integration.deepDecide(task, context);
+// {
+//   task,
+//   intention: { intent, risk, matchedGenes, geneInfluence },
+//   emotion: { mood, energy, confidence },
+//   decision: { strategy, priority, confidence, reason }
+// }
+```
+
+#### 集成测试结果
+- SoulFlow 初始化: ✅
+- SoulFlow 决策: ✅
+- SoulFlow 记忆: ✅
+- SoulFlow 情感: ✅
+- SoulFlow 意图: ✅
+- SkillFlow 规划: ✅
+- SkillFlow 执行: ✅
+- 集成执行: ✅ (2ms)
+
+---
+
 ## [未发布]
 
 ### 计划中
